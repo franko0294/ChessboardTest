@@ -7,7 +7,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.layout.AnchorPane?>
 
-<BorderPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="app.ViewController">
+<BorderPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="app.Controller2">
    <center>
       <GridPane gridLinesVisible="true" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
@@ -47,21 +47,12 @@
          <children>
             <HBox spacing="10.0" VBox.vgrow="ALWAYS">
                <padding>
-                  <Insets left="10.0" right="10.0" top="10.0" />
-               </padding>
-               <children>
-                  <Button mnemonicParsing="false" onAction="#startCamera1" prefWidth="150.0" text="Start Camera 1" />
-                  <Button mnemonicParsing="false" onAction="#startCamera2" prefWidth="150.0" text="Start Camera 2" />
-               </children>
-            </HBox>
-            <HBox spacing="10.0">
-               <children>
-                  <Button mnemonicParsing="false" onAction="#registerCamera1" prefWidth="150.0" text="Register Camera 1" />
-                  <Button mnemonicParsing="false" onAction="#registerCamera2" prefWidth="150.0" text="Register Camera 2" />
-               </children>
-               <padding>
                   <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
                </padding>
+               <children>
+                  <Button mnemonicParsing="false" onAction="#startCameras" prefWidth="150.0" text="Start Cameras" />
+                  <Button mnemonicParsing="false" onAction="#registerCameras" prefWidth="150.0" text="Register Cameras" />
+               </children>
             </HBox>
          </children>
       </VBox>
