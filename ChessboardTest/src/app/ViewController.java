@@ -10,15 +10,18 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.opencv.calib3d.Calib3d;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
+import org.opencv.core.Point;
 import org.opencv.core.Point3;
 import org.opencv.core.Rect;
 import org.opencv.core.Size;
 import org.opencv.core.TermCriteria;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.utils.Converters;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
 
@@ -143,10 +146,19 @@ public class ViewController {
 		prevTime = 0;
 		currentTime = System.currentTimeMillis();
 		
+		for(int i = 0; i < numCornersHor; i++)
+		{
+			for(int j = 0; j < numCornersVer; j++)
+			{
+				cameraObj.push_back(new MatOfPoint3f(new Point3(i, j, 0)));
+			}
+		}
+		/*
 		for(int i = 0; i < numCorners; i++)
 		{
 			cameraObj.push_back(new MatOfPoint3f(new Point3(i / this.numCornersHor, i % this.numCornersVer, 0.0f)));
 		}
+		*/
 	}
 	
 	@FXML
@@ -251,18 +263,21 @@ public class ViewController {
 						
 						if(camera1Calibrated && camera2Calibrated)
 						{
-							Imgproc.remap(camera1Frame, camera1Undistorted, camera1Map1, camera1Map2, Imgproc.INTER_NEAREST);
 							
-							//System.out.println("Showing camera 1");
+							System.out.println("Remapping camera 1");
+							Imgproc.remap(camera1Frame, camera1Undistorted, camera1Map1, camera1Map2, Imgproc.INTER_LINEAR);
+							
+							System.out.println("Showing camera 1");
 							updateImageView(mainViewCorrected, mat2Image(camera1Undistorted));
 							
-							//System.out.println("Remapping camera 2");
+							System.out.println("Remapping camera 2");
 							Imgproc.remap(camera2Frame, camera2Undistorted, camera2Map1, camera2Map2, Imgproc.INTER_LINEAR);
 							
 							//System.out.println(camera2Undistorted);
 							
-							//System.out.println("Showing camera 2");
+							System.out.println("Showing camera 2");
 							updateImageView(secondViewCorrected, mat2Image(camera2Undistorted));
+						
 						}
 						
 						/*
@@ -340,10 +355,10 @@ public class ViewController {
 			Size boardSize = new Size(numCornersVer, numCornersHor);
 			
 			boolean found1 = Calib3d.findChessboardCorners(copy1, boardSize, camera1Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE + Calib3d.CALIB_CB_FAST_CHECK);
+					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
 			
 			boolean found2 = Calib3d.findChessboardCorners(copy2, boardSize, camera2Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE + Calib3d.CALIB_CB_FAST_CHECK);
+					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
 			
 			if(found1 && found2)
 			{
@@ -353,7 +368,7 @@ public class ViewController {
 				// save the current frame for further elaborations
 				// show the chessboard inner corners on screen
 				Calib3d.drawChessboardCorners(cam1, boardSize, camera1Corners, found1);
-				Calib3d.drawChessboardCorners(cam2, boardSize, camera2Corners, found2);
+				Calib3d.drawChessboardCorners(cam2, boardSize, camera2Corners, found2);	
 				
 				currentTime = System.currentTimeMillis();
 				
@@ -363,6 +378,7 @@ public class ViewController {
 					takeSnapshot();
 					prevTime = currentTime;
 				}
+				
 			}
 		}
 	}
@@ -412,6 +428,7 @@ public class ViewController {
 		
 		if(numFrames1 == numFramesToCalib)
 		{
+			//stereoUncalibrated();
 			calibrateCameras();
 		}
 	}
@@ -458,8 +475,92 @@ public class ViewController {
 		}
 	}
 	
+	private void stereoUncalibrated()
+	{
+		System.out.println("Getting fundamental mat");
+		
+		ArrayList<Mat> temp = cloneArrayList(camera1Points);
+		
+		Mat temp2f = Converters.vector_Mat_to_Mat(temp);
+		
+		temp = cloneArrayList(objectPoints);
+		Mat temp3f = Converters.vector_Mat_to_Mat(temp);
+		//System.out.println("test");
+		List<MatOfPoint2f> temparray2f = new ArrayList<>();
+		List<MatOfPoint3f> temparray3f = new ArrayList<>();
+		
+		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
+		Converters.Mat_to_vector_vector_Point3f(temp3f, temparray3f);
+		
+		//System.out.println("Temp points\n" + temparray2f.get(0).dump());
+		
+		System.out.println("Object points:\n" + objectPoints.get(0));
+		
+		camera1Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera1Frame.size());
+		
+		temp = cloneArrayList(camera2Points);
+		
+		temp2f = Converters.vector_Mat_to_Mat(temp);
+		temparray2f.clear();
+		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
+		
+		camera2Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera2Frame.size());
+		
+		MatOfPoint2f totalCorners1 = new MatOfPoint2f();
+		
+		for (Mat mat : camera1Points) {
+			totalCorners1.push_back(mat);
+		}
+		
+		MatOfPoint2f totalCorners2 = new MatOfPoint2f();
+		
+		for (Mat mat : camera2Points) {
+			totalCorners2.push_back(mat);
+		}
+		
+		Mat F = Calib3d.findFundamentalMat(totalCorners1, totalCorners2, Calib3d.FM_8POINT, 0, 0);
+		Mat H1 = new Mat(4, 4, camera1Frame.type());
+		Mat H2 = new Mat(4, 4, camera2Frame.type());
+		
+		System.out.println(F.dump());
+		
+		Size newSize = new Size(camera1Frame.size().width, camera1Frame.size().height);
+		
+		//System.out.println("Rectifying");
+		boolean done = Calib3d.stereoRectifyUncalibrated(camera1Corners, camera2Corners, F, newSize,H1, H2);
+		
+		camera1Map1 = new Mat();
+		camera1Map2 = new Mat();
+		
+		camera2Map1 = new Mat();
+		camera2Map2 = new Mat();
+		
+		Mat rectify1 = new Mat();
+		
+		Core.multiply(camera1Intrinsic.inv(), H1, rectify1);
+		Core.multiply(rectify1, camera1Intrinsic, rectify1);
+		
+		Mat rectify2 = new Mat();
+		
+		Core.multiply(camera2Intrinsic.inv(), H2, rectify2);
+		Core.multiply(rectify1, camera2Intrinsic, rectify2);
+		
+		//System.out.println("initiating rectification");
+		Imgproc.initUndistortRectifyMap(camera1Intrinsic, camera1Dist, rectify1, camera1Intrinsic, newSize, CvType.CV_16SC2, camera1Map1, camera1Map2);
+		Imgproc.initUndistortRectifyMap(camera2Intrinsic, camera2Dist, rectify2, camera1Intrinsic, newSize, CvType.CV_16SC2, camera2Map1, camera2Map2);
+		
+		
+		camera1Calibrated = true;
+		camera2Calibrated = true;
+		//System.out.println(camera1Map1.dump());
+		
+		//System.out.println("Done rectifying: " + done);
+		//Imgproc.warpPerspective(camera1Frame, camera1Frame, H1, camera1Frame.size());
+	}
+	
 	private void calibrateCameras()
 	{
+		/*
 		List<Mat> rvecs1 = new ArrayList<>();
 		List<Mat> rvecs2 = new ArrayList<>();
 		
@@ -472,27 +573,66 @@ public class ViewController {
 		camera2Intrinsic.put(0, 0, 1);
 		camera2Intrinsic.put(1, 1, 1);
 		
-		double error1 = Calib3d.calibrateCamera(objectPoints, camera1Points, camera1Frame.size(), camera1Intrinsic, camera1Dist, rvecs1, tvecs1);
+		double error1 = Calib3d.calibrateCamera(objectPoints, camera1Points, camera1Frame.size(),
+				camera1Intrinsic, camera1Dist, rvecs1, tvecs1);
 		
 		double error2 = Calib3d.calibrateCamera(objectPoints, camera2Points, camera2Frame.size(), camera2Intrinsic, camera2Dist, rvecs2, tvecs2);
 		
 		System.out.println("Camera 1 error: " + error1);
 		System.out.println("Camera 2 error: " + error2);
+		*/
+		
+		//System.out.println("Camera 1 points\n" + camera1Points.get(0).dump());
+		/*
+		ArrayList<Mat> temp = cloneArrayList(camera1Points);
+		
+		Mat temp2f = Converters.vector_Mat_to_Mat(temp);
+		
+		temp = cloneArrayList(objectPoints);
+		Mat temp3f = Converters.vector_Mat_to_Mat(temp);
+		//System.out.println("test");
+		List<MatOfPoint2f> temparray2f = new ArrayList<>();
+		List<MatOfPoint3f> temparray3f = new ArrayList<>();
+		
+		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
+		Converters.Mat_to_vector_vector_Point3f(temp3f, temparray3f);
+		
+		//System.out.println("Temp points\n" + temparray2f.get(0).dump());
+		
+		System.out.println("Object points:\n" + objectPoints.get(0));
+		
+		camera1Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera1Frame.size());
+		
+		temp = cloneArrayList(camera2Points);
+		
+		temp2f = Converters.vector_Mat_to_Mat(temp);
+		temparray2f.clear();
+		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
+		
+		camera2Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera2Frame.size());
+		*/
+		
+		camera1Intrinsic = Mat.eye(3, 3, CvType.CV_64F);
+		camera2Intrinsic = Mat.eye(3, 3, CvType.CV_64F);
 		
 		Mat rotation = new Mat();
 		Mat translation = new Mat();
 		Mat essential = new Mat();
 		Mat fundamental = new Mat();
 		
+		System.out.println("Test");
 		double stereoError = Calib3d.stereoCalibrate(objectPoints, camera1Points, camera2Points, camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist,
-				camera2Frame.size(), rotation, translation, essential, fundamental, 
+				new Size(camera1Frame.width() * 2, camera1Frame.height() * 2), rotation, translation, essential, fundamental, 
 				Calib3d.CALIB_FIX_ASPECT_RATIO +
                 Calib3d.CALIB_ZERO_TANGENT_DIST +
                 Calib3d.CALIB_USE_INTRINSIC_GUESS +
-                Calib3d.CALIB_SAME_FOCAL_LENGTH +
+                //Calib3d.CALIB_SAME_FOCAL_LENGTH +
                 Calib3d.CALIB_RATIONAL_MODEL +
-                Calib3d.CALIB_FIX_K3 + Calib3d.CALIB_FIX_K4 + Calib3d.CALIB_FIX_K5,
-                new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 100, 1e-5));
+                //Calib3d.CALIB_FIX_K3 + 
+                Calib3d.CALIB_FIX_K4 + 
+                Calib3d.CALIB_FIX_K5 +
+                Calib3d.CALIB_FIX_K6,
+                new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 1000, 1e-5));
 		
 		System.out.println("Stereo error: " + stereoError);
 		
@@ -527,6 +667,17 @@ public class ViewController {
 		
 		camera1Calibrated = true;
 		camera2Calibrated = true;
+	}
+	
+	private ArrayList<Mat> cloneArrayList(List<Mat> camera1Points2)
+	{
+		ArrayList<Mat> clone = new ArrayList<>();
+		
+		for (Mat item : camera1Points2) {
+			clone.add(item.clone());
+		}
+		
+		return clone;
 	}
 	
 	private void calibrateCam1()
@@ -617,7 +768,7 @@ public class ViewController {
 				
 				currentTime = System.currentTimeMillis();
 				
-				if(currentTime - prevTime > 1000 && !camera2Calibrated)
+				if(currentTime - prevTime > 500 && !camera2Calibrated)
 				{
 					System.out.println("Taking snapshot");
 					takeSnapshotCam2();
