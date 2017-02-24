@@ -7,7 +7,7 @@
 <?import javafx.scene.layout.*?>
 <?import javafx.scene.layout.AnchorPane?>
 
-<BorderPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="app.Controller2">
+<BorderPane xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="app.ViewController">
    <center>
       <GridPane gridLinesVisible="true" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
@@ -52,6 +52,7 @@
                <children>
                   <Button mnemonicParsing="false" onAction="#startCameras" prefWidth="150.0" text="Start Cameras" />
                   <Button mnemonicParsing="false" onAction="#registerCameras" prefWidth="150.0" text="Register Cameras" />
+                  <Button mnemonicParsing="false" onAction="#takeSnapshot" prefWidth="150.0" text="Take Snapshot" fx:id="snapButton"/>
                </children>
             </HBox>
          </children>

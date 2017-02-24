@@ -14,7 +14,9 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
+import org.opencv.core.Point;
 import org.opencv.core.Point3;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
@@ -75,8 +77,8 @@ public class Controller2 {
 	private boolean registerCameras;
 	
 	public Controller2() {
-		camera1 = new VideoCapture(0);
-		camera2 = new VideoCapture(1);
+		camera1 = new VideoCapture();
+		camera2 = new VideoCapture();
 		
 		registerCameras = false;
 		
@@ -88,27 +90,45 @@ public class Controller2 {
 		camera2Corners = new MatOfPoint2f();
 		cameraObj = new MatOfPoint3f();
 		
+		camera1Points = new ArrayList<>();
+		camera2Points = new ArrayList<>();
+		objectPoints = new ArrayList<>();
+		
 		camera1Intrinsic = new Mat(3, 3, CvType.CV_32FC1);
 		camera2Intrinsic = new Mat(3, 3, CvType.CV_32FC1);
 		
-		camera1Dist = new Mat();
-		camera2Dist = new Mat();
+		camera1Dist = Mat.zeros(8, 1, CvType.CV_64F);
+		camera2Dist = Mat.zeros(8, 1, CvType.CV_64F);
 		
 		camera1Calibrated = false;
 		camera2Calibrated = false;
 		
+		numFrames = 0;
+		numFramesToCalib = 20;
+		
 		prevTime = 0;
 		currentTime = System.currentTimeMillis();
 		
+		for(int i = 0; i < numCornersVer; i++)
+		{
+			for(int j = 0; j < numCornersHor; j++)
+			{
+				cameraObj.push_back(new MatOfPoint3f(new Point3(i, j, 0.0f)));
+			}
+		}
+		/*
 		for(int i = 0; i < numCorners; i++)
 		{
-			cameraObj.push_back(new MatOfPoint3f(new Point3(i / this.numCornersHor, i % this.numCornersVer, 0.0f)));
+			//cameraObj.push_back(new MatOfPoint3f(new Point3(i / this.numCornersHor, i % this.numCornersVer, 0.0f)));
+			cameraObj.push_back(new MatOfPoint3f(new Point3(i / this.numCornersVer, i % this.numCornersHor, 0.0f)));
 		}
+		*/
 	}
 	
 	@FXML
 	private void startCameras()
 	{
+		System.out.println("Starting cameras");
 		if(!camera1.isOpened() && !camera2.isOpened())
 		{
 			if(camera1.open(0) && camera2.open(1))
@@ -118,7 +138,15 @@ public class Controller2 {
 			else
 			{
 				System.out.println("Cannot open cameras, please try again");
+				System.out.println("Camera 1: " + camera1.isOpened());
+				System.out.println("Camera 2: " + camera2.isOpened());
 			}
+		}
+		else
+		{
+			System.out.println("Cameras already opened");
+			System.out.println("Camera 1: " + camera1.isOpened());
+			System.out.println("Camera 2: " + camera2.isOpened());
 		}
 	}
 	
@@ -137,6 +165,7 @@ public class Controller2 {
 	
 	private void runCameras()
 	{
+		System.out.println("Running cameras");
 		if(camera1.isOpened() && camera2.isOpened())
 		{
 			Runnable framegrabber = new Runnable() {
@@ -154,12 +183,54 @@ public class Controller2 {
 						//Calibrate cameras individually using assymetrical circles grid
 						findAndDrawPoints(frame1, frame2);
 						//Get perspective transform based off the same 4 points on the circle grid
+						if(camera1Calibrated && !camera2Calibrated)
+						{
+							MatOfPoint2f cam1Corners = new MatOfPoint2f();
+							MatOfPoint2f cam2Corners = new MatOfPoint2f();
+							
+							Imgproc.circle(frame1, new Point(camera1Corners.row(0).get(0, 0)[0], camera1Corners.row(0).get(0, 0)[1]), 5, new Scalar(255, 0, 0), 5);
+							Imgproc.circle(frame2, new Point(camera2Corners.row(0).get(0, 0)[0], camera2Corners.row(0).get(0, 0)[1]), 5, new Scalar(255, 0, 0), 5);
+							
+							Imgproc.circle(frame1, new Point(camera1Corners.row(15).get(0, 0)[0], camera1Corners.row(15).get(0, 0)[1]), 5, new Scalar(0, 255, 0), 5);
+							Imgproc.circle(frame2, new Point(camera2Corners.row(15).get(0, 0)[0], camera2Corners.row(15).get(0, 0)[1]), 5, new Scalar(0, 255, 0), 5);
+							
+							Imgproc.circle(frame1, new Point(camera1Corners.row(30).get(0, 0)[0], camera1Corners.row(30).get(0, 0)[1]), 5, new Scalar(0, 0, 255), 5);
+							Imgproc.circle(frame2, new Point(camera2Corners.row(30).get(0, 0)[0], camera2Corners.row(30).get(0, 0)[1]), 5, new Scalar(0, 0, 255), 5);
+							
+							Imgproc.circle(frame1, new Point(camera1Corners.row(40).get(0, 0)[0], camera1Corners.row(40).get(0, 0)[1]), 5, new Scalar(255, 255, 255), 5);
+							Imgproc.circle(frame2, new Point(camera2Corners.row(40).get(0, 0)[0], camera2Corners.row(40).get(0, 0)[1]), 5, new Scalar(255, 255, 255), 5);
+							
+							cam1Corners.push_back(camera1Corners.row(0));
+							cam1Corners.push_back(camera1Corners.row(15));
+							cam1Corners.push_back(camera1Corners.row(30));
+							cam1Corners.push_back(camera1Corners.row(40));
+							
+							cam2Corners.push_back(camera2Corners.row(0));
+							cam2Corners.push_back(camera1Corners.row(15));
+							cam2Corners.push_back(camera1Corners.row(30));
+							cam2Corners.push_back(camera1Corners.row(40));
+							
+							System.out.println(cam1Corners.dump());
+							System.out.println(cam2Corners.dump());
+							
+							Mat homo = Calib3d.findHomography(cam2Corners, cam1Corners);
+							Mat perp = Imgproc.getPerspectiveTransform(cam2Corners, cam1Corners);
+							
+							Mat frame2UD = new Mat();
+							Imgproc.warpPerspective(frame2, frame2UD, homo, frame2.size(), Imgproc.INTER_LINEAR);
+							//Imgproc.warpPerspective(frame2, frame2UD, perp.inv(), frame2.size(), Imgproc.INTER_LINEAR);
+							
+							updateImageView(secondViewCorrected, mat2Image(frame2UD));
+						}
+						
 						if(camera1Calibrated && camera2Calibrated)
 						{
 							Mat frame1UD = new Mat();
 							Mat frame2UD = new Mat();
-							Calib3d.undistortImage(frame1, frame1UD, camera1Intrinsic, camera1Dist);	
-							Calib3d.undistortImage(frame2, frame2UD, camera2Intrinsic, camera2Dist);
+							Imgproc.undistort(frame1, frame1UD, camera1Intrinsic, camera1Dist);
+							Imgproc.undistort(frame2, frame2UD, camera2Intrinsic, camera2Dist);
+							//Calib3d.undistortImage(frame1, frame1UD, camera1Intrinsic, camera1Dist);	
+							//Calib3d.undistortImage(frame2, frame2UD, camera2Intrinsic, camera2Dist);
 							
 							updateImageView(mainViewCorrected, mat2Image(frame1UD));
 							updateImageView(secondViewCorrected, mat2Image(frame2UD));
@@ -172,7 +243,7 @@ public class Controller2 {
 			};
 			
 			timer = Executors.newSingleThreadScheduledExecutor();
-			timer.scheduleAtFixedRate(framegrabber, 0, 100, TimeUnit.MILLISECONDS);
+			timer.scheduleAtFixedRate(framegrabber, 0, 33, TimeUnit.MILLISECONDS);
 		}
 	}
 	
@@ -186,16 +257,23 @@ public class Controller2 {
 		
 		if(numFrames < numFramesToCalib)
 		{
-			Size boardSize = new Size(numCornersHor, numCornersVer);
+			Size boardSize = new Size(4, 11);
 			
-			boolean found1 = Calib3d.findCirclesGrid(copy1, boardSize, camera1Corners, Calib3d.CALIB_CB_ASYMMETRIC_GRID);
-			boolean found2 = Calib3d.findCirclesGrid(copy2, boardSize, camera1Corners, Calib3d.CALIB_CB_ASYMMETRIC_GRID);
+			boolean found1 = Calib3d.findCirclesGrid(copy1, boardSize, camera1Corners, Calib3d.CALIB_CB_ASYMMETRIC_GRID + Calib3d.CALIB_CB_CLUSTERING);
+			boolean found2 = Calib3d.findCirclesGrid(copy2, boardSize, camera2Corners, Calib3d.CALIB_CB_ASYMMETRIC_GRID + Calib3d.CALIB_CB_CLUSTERING);
+			
+			System.out.println("Camera 1 found: " + found1 + "\nCamera 2 found: " + found2);
 			
 			if(found1 && found2)
 			{
+				
 				Calib3d.drawChessboardCorners(frame1, boardSize, camera1Corners, found1);
 				Calib3d.drawChessboardCorners(frame2, boardSize, camera2Corners, found2);
 				
+				System.out.println("Done drawing corners");
+				
+				camera1Calibrated = true;
+				/*
 				currentTime = System.currentTimeMillis();
 				
 				if(currentTime - prevTime > 500 && !camera1Calibrated)
@@ -203,6 +281,13 @@ public class Controller2 {
 					takeSnapshot();
 					prevTime = currentTime;
 				}
+				*/
+				
+				
+			}
+			else
+			{
+				camera1Calibrated = false;
 			}
 		}
 	}
@@ -211,6 +296,7 @@ public class Controller2 {
 	{
 		if(numFrames < numFramesToCalib)
 		{
+			System.out.println("Taking snapshot");
 			camera1Points.add(camera1Corners);
 			camera2Points.add(camera2Corners);
 			
@@ -222,6 +308,8 @@ public class Controller2 {
 		{
 			calibrateCameras();
 		}
+		
+		System.out.println("Done taking snapshot");
 	}
 	
 	private void calibrateCameras()
@@ -238,6 +326,12 @@ public class Controller2 {
 		
 		double error1 = Calib3d.calibrateCamera(objectPoints, camera1Points, frame1.size(), camera1Intrinsic, camera1Dist, rvecs1, tvecs1);
 		double error2 = Calib3d.calibrateCamera(objectPoints, camera2Points, frame2.size(), camera2Intrinsic, camera2Dist, rvecs2, tvecs2);
+		
+		System.out.println("Camera 1 Intrinsics:\n" + camera1Intrinsic.dump());
+		System.out.println("Camera 1 Distortion Coeffs:\n" + camera1Dist.dump());
+		
+		System.out.println("Camera 2 Intrinsics:\n" + camera2Intrinsic.dump());
+		System.out.println("Camera 2 Distortion Coeffs:\n" + camera2Dist.dump());
 		
 		System.out.println("Camera 1 error: " + error1 + "\nCamera 2 error: " + error2);
 		

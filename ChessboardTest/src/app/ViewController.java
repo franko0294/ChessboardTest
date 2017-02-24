@@ -29,6 +29,7 @@ import javafx.application.Platform;
 import javafx.beans.property.ObjectProperty;
 import javafx.embed.swing.SwingFXUtils;
 import javafx.fxml.FXML;
+import javafx.scene.control.Button;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
@@ -41,6 +42,8 @@ public class ViewController {
 	private ImageView secondView;
 	@FXML
 	private ImageView secondViewCorrected;
+	@FXML
+	private Button snapButton;
 	
 	private VideoCapture camera1;
 	private VideoCapture camera2;
@@ -70,8 +73,11 @@ public class ViewController {
 	private Mat camera2Map2;
 	
 	private List<Mat> camera1Points;
+	private List<MatOfPoint2f> camera1Points2f;
 	private List<Mat> camera2Points;
+	private List<MatOfPoint2f> camera2Points2f;
 	private List<Mat> objectPoints;
+	private List<MatOfPoint3f> objectPoints3f;
 	
 	private MatOfPoint2f camera1Corners;
 	private MatOfPoint2f camera2Corners;
@@ -81,22 +87,16 @@ public class ViewController {
 	private Mat camera1Intrinsic;
 	private Mat camera2Intrinsic;
 	
-	private Mat camera2Extrinsic;
-	
 	private Mat camera1Dist;
 	private Mat camera2Dist;
 	
 	private ScheduledExecutorService timer;
 	
-	private Size boardSize;
-	
 	private int numFramesToCalib;
 	private int numFrames1;
-	private int numFrames2;
 	
 	private int numCornersHor;
 	private int numCornersVer;
-	private int numCorners;
 	
 	private long prevTime;
 	private long currentTime;
@@ -115,11 +115,9 @@ public class ViewController {
 		//Init with size of calib chessboard
 		numCornersHor = 6; //9
 		numCornersVer = 9; //14
-		numCorners = numCornersHor * numCornersVer;
 		
 		numFramesToCalib = 20;
 		numFrames1 = 0;
-		numFrames2 = 0;
 		
 		camera1Undistorted = new Mat();
 		camera2Undistorted = new Mat();
@@ -129,14 +127,15 @@ public class ViewController {
 		cameraObj = new MatOfPoint3f();
 		
 		camera1Points = new ArrayList<>();
+		camera1Points2f = new ArrayList<>();
 		camera2Points = new ArrayList<>();
+		camera2Points2f = new ArrayList<>();
 		objectPoints = new ArrayList<>();
+		objectPoints3f = new ArrayList<>();
 		
 		camera1Intrinsic = new Mat(3, 3, CvType.CV_32FC1);
 		camera2Intrinsic = new Mat(3, 3, CvType.CV_32FC1);
-		
-		camera2Extrinsic = new Mat(3, 3, CvType.CV_32FC1);
-		
+
 		camera1Dist = new Mat();
 		camera2Dist = new Mat();
 		
@@ -162,7 +161,7 @@ public class ViewController {
 	}
 	
 	@FXML
-	private void startCamera1()
+	private void startCameras()
 	{
 		if(!camera1Started)
 		{
@@ -182,32 +181,9 @@ public class ViewController {
 			}
 		}
 	}
-	
+
 	@FXML
-	private void startCamera2()
-	{
-		if(camera1Started && !camera2Started)
-		{
-			camera2 = new VideoCapture();
-			camera2Started = camera2.open(1);
-			
-			if(camera2Started)
-			{
-				getSecondCamera = true;
-			}
-			else
-			{
-				System.out.println("Error opening Camera 2, please check the connection and try again");
-			}
-		}
-		else
-		{
-			System.out.println("Please start Camera 1 first");
-		}
-	}
-	
-	@FXML
-	private void registerCamera1()
+	private void registerCameras()
 	{
 		if(registerCamera1)
 		{
@@ -216,19 +192,6 @@ public class ViewController {
 		else
 		{
 			registerCamera1 = true;
-		}
-	}
-	
-	@FXML
-	private void registerCamera2()
-	{
-		if(registerCamera2)
-		{
-			registerCamera2 = false;
-		}
-		else
-		{
-			registerCamera2 = true;
 		}
 	}
 	
@@ -264,81 +227,30 @@ public class ViewController {
 						if(camera1Calibrated && camera2Calibrated)
 						{
 							
-							System.out.println("Remapping camera 1");
+//							System.out.println("Remapping camera 1");
 							Imgproc.remap(camera1Frame, camera1Undistorted, camera1Map1, camera1Map2, Imgproc.INTER_LINEAR);
 							
-							System.out.println("Showing camera 1");
+//							System.out.println("Showing camera 1");
 							updateImageView(mainViewCorrected, mat2Image(camera1Undistorted));
 							
-							System.out.println("Remapping camera 2");
+//							System.out.println("Remapping camera 2");
 							Imgproc.remap(camera2Frame, camera2Undistorted, camera2Map1, camera2Map2, Imgproc.INTER_LINEAR);
 							
 							//System.out.println(camera2Undistorted);
 							
-							System.out.println("Showing camera 2");
+//							System.out.println("Showing camera 2");
 							updateImageView(secondViewCorrected, mat2Image(camera2Undistorted));
 						
 						}
-						
-						/*
-						if(camera1Calibrated)
-						{
-							if(camera2Calibrated)
-							{
-								System.out.println("Remapping camera 1");
-								Imgproc.remap(camera1Frame, camera1Undistorted, camera1Map1, camera1Map2, Imgproc.INTER_NEAREST);
-								
-								System.out.println("Showing camera 1");
-								updateImageView(mainViewCorrected, mat2Image(camera1Undistorted));
-							}
-							else
-							{
-								Imgproc.undistort(camera1Frame, camera1Undistorted, camera1Intrinsic, camera1Dist);
-								
-								//System.out.println(undistorted.dump());
-								updateImageView(mainViewCorrected, mat2Image(camera1Undistorted));
-							}
-							
-						}
-						*/
 					}
 					
 					updateImageView(mainView, mat2Image(camera1Frame));
 					updateImageView(secondView, mat2Image(camera2Frame));
-					
-					/*
-					if(registerCamera2)
-					{
-						findAndDrawPointsCam2(camera2Frame);
-						
-						if(camera2Calibrated)
-						{
-							System.out.println("Remapping camera 2");
-							Imgproc.remap(camera2Frame, camera2Undistorted, camera2Map1, camera2Map2, Imgproc.INTER_LINEAR);
-							
-							System.out.println(camera2Undistorted);
-							
-							System.out.println("Showing camera 2");
-							updateImageView(secondViewCorrected, mat2Image(camera2Undistorted));
-							
-							//Mat undistorted = new Mat();
-							//Imgproc.undistort(camera2Frame, undistorted, camera2Intrinsic, camera2Dist);
-							
-							//System.out.println(undistorted.dump());
-							//updateImageView(secondViewCorrected, mat2Image(undistorted));
-						}
-					}
-					
-					if(getSecondCamera)
-					{
-						updateImageView(secondView, mat2Image(camera2Frame));
-					}
-					*/
 				}
 			};
 			
 			timer = Executors.newSingleThreadScheduledExecutor();
-			timer.scheduleAtFixedRate(framegrabber, 0, 100, TimeUnit.MILLISECONDS);
+			timer.scheduleAtFixedRate(framegrabber, 0, 33, TimeUnit.MILLISECONDS);
 		}
 	}
 	
@@ -350,78 +262,38 @@ public class ViewController {
 		Imgproc.cvtColor(cam1, copy1, Imgproc.COLOR_BGR2GRAY);
 		Imgproc.cvtColor(cam2, copy2, Imgproc.COLOR_BGR2GRAY);
 		
-		if(numFrames1 < numFramesToCalib)
-		{
-			Size boardSize = new Size(numCornersVer, numCornersHor);
-			
-			boolean found1 = Calib3d.findChessboardCorners(copy1, boardSize, camera1Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
-			
-			boolean found2 = Calib3d.findChessboardCorners(copy2, boardSize, camera2Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
-			
-			if(found1 && found2)
-			{
-				TermCriteria term = new TermCriteria(TermCriteria.EPS | TermCriteria.MAX_ITER, 30, 0.1);
-				Imgproc.cornerSubPix(copy1, camera1Corners, new Size(11, 11), new Size(-1, -1), term);
-				Imgproc.cornerSubPix(copy2, camera2Corners, new Size(11, 11), new Size(-1, -1), term);
-				// save the current frame for further elaborations
-				// show the chessboard inner corners on screen
-				Calib3d.drawChessboardCorners(cam1, boardSize, camera1Corners, found1);
-				Calib3d.drawChessboardCorners(cam2, boardSize, camera2Corners, found2);	
-				
-				currentTime = System.currentTimeMillis();
-				
-				if(currentTime - prevTime > 500 && !camera1Calibrated)
-				{
-					System.out.println("Taking snapshot " + numFrames1);
-					takeSnapshot();
-					prevTime = currentTime;
-				}
-				
-			}
-		}
-	}
-	
-	private void findAndDrawPointsCam1(Mat frame)
-	{
-		Mat copy = new Mat();
-		Imgproc.cvtColor(frame, copy, Imgproc.COLOR_BGR2GRAY);
+		Size boardSize = new Size(numCornersVer, numCornersHor);
 		
-		if(numFrames1 < numFramesToCalib)
+		boolean found1 = Calib3d.findChessboardCorners(copy1, boardSize, camera1Corners, 
+				Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
+		
+		boolean found2 = Calib3d.findChessboardCorners(copy2, boardSize, camera2Corners, 
+				Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE);
+		
+		if(found1 && found2)
 		{
-			Size boardSize = new Size(numCornersVer, numCornersHor);
+			TermCriteria term = new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 30, 0.01);
+			Imgproc.cornerSubPix(copy1, camera1Corners, new Size(11, 11), new Size(-1, -1), term);
+			Imgproc.cornerSubPix(copy2, camera2Corners, new Size(11, 11), new Size(-1, -1), term);
+			// save the current frame for further elaborations
+			// show the chessboard inner corners on screen
+			Calib3d.drawChessboardCorners(cam1, boardSize, camera1Corners, found1);
+			Calib3d.drawChessboardCorners(cam2, boardSize, camera2Corners, found2);	
 			
-			boolean found = Calib3d.findChessboardCorners(copy, boardSize, camera1Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE + Calib3d.CALIB_CB_FAST_CHECK);
-			
-			if(found)
-			{
-				TermCriteria term = new TermCriteria(TermCriteria.EPS | TermCriteria.MAX_ITER, 30, 0.1);
-				Imgproc.cornerSubPix(copy, camera1Corners, new Size(11, 11), new Size(-1, -1), term);
-				// save the current frame for further elaborations
-				// show the chessboard inner corners on screen
-				Calib3d.drawChessboardCorners(frame, boardSize, camera1Corners, found);
-				
-				currentTime = System.currentTimeMillis();
-				
-				if(currentTime - prevTime > 1000 && !camera1Calibrated)
-				{
-					System.out.println("Taking snapshot " + numFrames1);
-					takeSnapshotCam1();
-					prevTime = currentTime;
-				}
-			}
 		}
 	}
 	
+	@FXML
 	private void takeSnapshot()
 	{
 		if(numFrames1 < numFramesToCalib)
 		{
 			camera1Points.add(camera1Corners);
+			camera1Points2f.add(camera1Corners);
 			camera2Points.add(camera2Corners);
+			camera2Points2f.add(camera2Corners);
 			objectPoints.add(cameraObj);
+			objectPoints3f.add(cameraObj);
 			
 			numFrames1++;
 		}
@@ -430,48 +302,6 @@ public class ViewController {
 		{
 			//stereoUncalibrated();
 			calibrateCameras();
-		}
-	}
-	
-	private void takeSnapshotCam1()
-	{		
-		if(numFrames1 < numFramesToCalib)
-		{
-			System.out.println("adding camera points");
-			System.out.println(camera1Corners);
-			camera1Points.add(camera1Corners);
-			System.out.println("adding object points");
-			objectPoints.add(cameraObj);
-			numFrames1++;
-		}
-		
-		System.out.println("Done taking snapshot");
-		if(numFrames1 == numFramesToCalib)
-		{
-			calibrateCam1();
-		}
-	}
-	
-	private void takeSnapshotCam2()
-	{	
-		if(objectPoints.size() >= numFramesToCalib)
-		{
-			objectPoints.clear();
-		}
-		if(numFrames2 < numFramesToCalib)
-		{
-			System.out.println("adding camera points");
-			System.out.println(camera2Corners);
-			camera2Points.add(camera2Corners);
-			System.out.println("adding object points");
-			objectPoints.add(cameraObj);
-			numFrames2++;
-		}
-		
-		System.out.println("Done taking snapshot");
-		if(numFrames2 == numFramesToCalib)
-		{
-			calibrateCam2();
 		}
 	}
 	
@@ -549,6 +379,7 @@ public class ViewController {
 		Imgproc.initUndistortRectifyMap(camera1Intrinsic, camera1Dist, rectify1, camera1Intrinsic, newSize, CvType.CV_16SC2, camera1Map1, camera1Map2);
 		Imgproc.initUndistortRectifyMap(camera2Intrinsic, camera2Dist, rectify2, camera1Intrinsic, newSize, CvType.CV_16SC2, camera2Map1, camera2Map2);
 		
+		snapButton.setDisable(true);
 		
 		camera1Calibrated = true;
 		camera2Calibrated = true;
@@ -560,60 +391,8 @@ public class ViewController {
 	
 	private void calibrateCameras()
 	{
-		/*
-		List<Mat> rvecs1 = new ArrayList<>();
-		List<Mat> rvecs2 = new ArrayList<>();
-		
-		List<Mat> tvecs1 = new ArrayList<>();
-		List<Mat> tvecs2 = new ArrayList<>();
-		
-		camera1Intrinsic.put(0, 0, 1);
-		camera1Intrinsic.put(1, 1, 1);
-		
-		camera2Intrinsic.put(0, 0, 1);
-		camera2Intrinsic.put(1, 1, 1);
-		
-		double error1 = Calib3d.calibrateCamera(objectPoints, camera1Points, camera1Frame.size(),
-				camera1Intrinsic, camera1Dist, rvecs1, tvecs1);
-		
-		double error2 = Calib3d.calibrateCamera(objectPoints, camera2Points, camera2Frame.size(), camera2Intrinsic, camera2Dist, rvecs2, tvecs2);
-		
-		System.out.println("Camera 1 error: " + error1);
-		System.out.println("Camera 2 error: " + error2);
-		*/
-		
-		//System.out.println("Camera 1 points\n" + camera1Points.get(0).dump());
-		/*
-		ArrayList<Mat> temp = cloneArrayList(camera1Points);
-		
-		Mat temp2f = Converters.vector_Mat_to_Mat(temp);
-		
-		temp = cloneArrayList(objectPoints);
-		Mat temp3f = Converters.vector_Mat_to_Mat(temp);
-		//System.out.println("test");
-		List<MatOfPoint2f> temparray2f = new ArrayList<>();
-		List<MatOfPoint3f> temparray3f = new ArrayList<>();
-		
-		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
-		Converters.Mat_to_vector_vector_Point3f(temp3f, temparray3f);
-		
-		//System.out.println("Temp points\n" + temparray2f.get(0).dump());
-		
-		System.out.println("Object points:\n" + objectPoints.get(0));
-		
-		camera1Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera1Frame.size());
-		
-		temp = cloneArrayList(camera2Points);
-		
-		temp2f = Converters.vector_Mat_to_Mat(temp);
-		temparray2f.clear();
-		Converters.Mat_to_vector_vector_Point2f(temp2f, temparray2f);
-		
-		camera2Intrinsic = Calib3d.initCameraMatrix2D(temparray3f, temparray2f, camera2Frame.size());
-		*/
-		
-		camera1Intrinsic = Mat.eye(3, 3, CvType.CV_64F);
-		camera2Intrinsic = Mat.eye(3, 3, CvType.CV_64F);
+		camera1Intrinsic = Calib3d.initCameraMatrix2D(objectPoints3f, camera1Points2f, camera1Frame.size());
+		camera2Intrinsic = Calib3d.initCameraMatrix2D(objectPoints3f, camera2Points2f, camera2Frame.size());
 		
 		Mat rotation = new Mat();
 		Mat translation = new Mat();
@@ -622,17 +401,16 @@ public class ViewController {
 		
 		System.out.println("Test");
 		double stereoError = Calib3d.stereoCalibrate(objectPoints, camera1Points, camera2Points, camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist,
-				new Size(camera1Frame.width() * 2, camera1Frame.height() * 2), rotation, translation, essential, fundamental, 
+				camera1Frame.size(), rotation, translation, essential, fundamental, 
 				Calib3d.CALIB_FIX_ASPECT_RATIO +
                 Calib3d.CALIB_ZERO_TANGENT_DIST +
                 Calib3d.CALIB_USE_INTRINSIC_GUESS +
-                //Calib3d.CALIB_SAME_FOCAL_LENGTH +
+                Calib3d.CALIB_SAME_FOCAL_LENGTH +
                 Calib3d.CALIB_RATIONAL_MODEL +
-                //Calib3d.CALIB_FIX_K3 + 
+                Calib3d.CALIB_FIX_K3 + 
                 Calib3d.CALIB_FIX_K4 + 
-                Calib3d.CALIB_FIX_K5 +
-                Calib3d.CALIB_FIX_K6,
-                new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 1000, 1e-5));
+                Calib3d.CALIB_FIX_K5,
+                new TermCriteria(TermCriteria.COUNT + TermCriteria.EPS, 30, 0.01));
 		
 		System.out.println("Stereo error: " + stereoError);
 		
@@ -651,7 +429,7 @@ public class ViewController {
 		Size newSize = new Size(camera1Frame.size().width, camera1Frame.size().height);
 		Calib3d.stereoRectify(camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist, camera1Frame.size(), rotation, translation, 
 				rectify1, rectify2, projection1, projection2, Q, 
-				Calib3d.CALIB_ZERO_DISPARITY, 1, newSize,roi1, roi2);
+				Calib3d.CALIB_ZERO_DISPARITY, 0, newSize,roi1, roi2);
 		
 		camera1Map1 = new Mat();
 		camera1Map2 = new Mat();
@@ -660,8 +438,8 @@ public class ViewController {
 		camera2Map2 = new Mat();
 		
 		//System.out.println("initiating rectification");
-		Imgproc.initUndistortRectifyMap(camera1Intrinsic, camera1Dist, rectify1, camera1Intrinsic, newSize, CvType.CV_16SC2, camera1Map1, camera1Map2);
-		Imgproc.initUndistortRectifyMap(camera2Intrinsic, camera2Dist, rectify2, camera1Intrinsic, newSize, CvType.CV_16SC2, camera2Map1, camera2Map2);
+		Imgproc.initUndistortRectifyMap(camera1Intrinsic, camera1Dist, rectify1, projection1, newSize, CvType.CV_16SC2, camera1Map1, camera1Map2);
+		Imgproc.initUndistortRectifyMap(camera2Intrinsic, camera2Dist, rectify2, projection2, newSize, CvType.CV_16SC2, camera2Map1, camera2Map2);
 		
 		//System.out.println("Done with that shit");
 		
@@ -678,104 +456,6 @@ public class ViewController {
 		}
 		
 		return clone;
-	}
-	
-	private void calibrateCam1()
-	{
-		List<Mat> rvecs = new ArrayList<>();
-		List<Mat> tvecs = new ArrayList<>();
-		camera1Intrinsic.put(0, 0, 1);
-		camera1Intrinsic.put(1, 1, 1);
-		
-		double error = Calib3d.calibrateCamera(objectPoints, camera1Points, camera1Frame.size(), camera1Intrinsic, camera1Dist, rvecs, tvecs);
-		
-		System.out.println("Camera 1 error: " + error);
-		
-		camera1Calibrated = true;
-	}
-	
-	private void calibrateCam2()
-	{
-		List<Mat> rvecs = new ArrayList<>();
-		List<Mat> tvecs = new ArrayList<>();
-		camera2Intrinsic.put(0, 0, 1);
-		camera2Intrinsic.put(1, 1, 1);
-		
-		double error = Calib3d.calibrateCamera(objectPoints, camera2Points, camera2Frame.size(), camera2Intrinsic, camera2Dist, rvecs, tvecs);
-		
-		System.out.println("Camera 2 error: " + error);
-		
-		Mat rotation = new Mat();
-		Mat translation = new Mat();
-		Mat essential = new Mat();
-		Mat fundamental = new Mat();
-		
-		double stereoError = Calib3d.stereoCalibrate(objectPoints, camera1Points, camera2Points, camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist,
-				camera2Frame.size(), rotation, translation, essential, fundamental);
-		
-		System.out.println("Stereo error: " + stereoError);
-		
-		Mat rectify1 = new Mat();
-		Mat rectify2 = new Mat();
-		Mat projection1 = new Mat();
-		Mat projection2 = new Mat();
-		Mat Q = new Mat();
-		
-		Rect roi1 = new Rect();
-		Rect roi2 = new Rect();
-		
-		System.out.println("Rectifying");
-		//Calib3d.stereoRectify(camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist, camera2Frame.size(), rotation, translation, 
-		//		rectify1, rectify2, projection1, projection2, Q);
-		Calib3d.stereoRectify(camera1Intrinsic, camera1Dist, camera2Intrinsic, camera2Dist, camera1Frame.size(), rotation, translation, 
-				rectify1, rectify2, projection1, projection2, Q, 
-				Calib3d.CALIB_ZERO_DISPARITY, 1, camera1Frame.size(), roi1, roi2);
-		
-		camera1Map1 = new Mat();
-		camera1Map2 = new Mat();
-		
-		camera2Map1 = new Mat();
-		camera2Map2 = new Mat();
-		
-		System.out.println("initiating rectification");
-		Imgproc.initUndistortRectifyMap(camera1Intrinsic, camera1Dist, rectify1, camera1Intrinsic, camera1Frame.size(), CvType.CV_16SC2, camera1Map1, camera1Map2);
-		Imgproc.initUndistortRectifyMap(camera2Intrinsic, camera2Dist, rectify2, camera1Intrinsic, camera2Frame.size(), CvType.CV_16SC2, camera2Map1, camera2Map2);
-		
-		System.out.println("Done with that shit");
-		
-		camera2Calibrated = true;
-	}
-	
-	private void findAndDrawPointsCam2(Mat frame)
-	{
-		Mat copy = new Mat();
-		Imgproc.cvtColor(frame, copy, Imgproc.COLOR_BGR2GRAY);
-		
-		if(numFrames2 < numFramesToCalib)
-		{
-			Size boardSize = new Size(numCornersVer, numCornersHor);
-			
-			boolean found = Calib3d.findChessboardCorners(copy, boardSize, camera2Corners, 
-					Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE + Calib3d.CALIB_CB_FAST_CHECK);
-			
-			if(found)
-			{
-				TermCriteria term = new TermCriteria(TermCriteria.EPS | TermCriteria.MAX_ITER, 30, 0.1);
-				Imgproc.cornerSubPix(copy, camera2Corners, new Size(11, 11), new Size(-1, -1), term);
-				// save the current frame for further elaborations
-				// show the chessboard inner corners on screen
-				Calib3d.drawChessboardCorners(frame, boardSize, camera2Corners, found);
-				
-				currentTime = System.currentTimeMillis();
-				
-				if(currentTime - prevTime > 500 && !camera2Calibrated)
-				{
-					System.out.println("Taking snapshot");
-					takeSnapshotCam2();
-					prevTime = currentTime;
-				}
-			}
-		}
 	}
 	
 	private void updateImageView(ImageView toUpdate, Image image)
